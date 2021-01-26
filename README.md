@@ -1,7 +1,9 @@
 # File_DigitalSignature
 Built in Visual Studio 2019
 
-This source is based on openssl.
+Based on openssl
+
+This program generates and validates digital signatures of files.
 
 ## Design
 대략 그림 첨부
