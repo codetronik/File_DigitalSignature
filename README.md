@@ -4,5 +4,10 @@ Built in Visual Studio 2019
 This source is based on openssl.
 
 ## Features
-- Generate a Digital signature of the file (using RSA private-key)
-- Validate a Digital signature of the file (using RSA public-key)
+- Generate a Digital signature of the file 
+- Validate a Digital signature of the file 
+
+## How To Use
+1. Press "Make Key Pair" button to generate rsa keypairs.
+(The key file is created in the running directory. (PrivateKey.pem and PublicKey.pem)
+2.  
