@@ -3,6 +3,9 @@ Built in Visual Studio 2019
 
 This source is based on openssl.
 
+## Design
+대략 그림 첨부
+
 ## Features
 - Generate a Digital signature of the file 
 - Validate a Digital signature of the file 
