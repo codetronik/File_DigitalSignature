@@ -1,4 +1,5 @@
 # File_DigitalSignature
+![image](https://raw.githubusercontent.com/codetronik/File_DigitalSignature/master/screenshots/main.png)
 Built in Visual Studio 2019
 
 Based on openssl
