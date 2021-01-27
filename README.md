@@ -3,7 +3,7 @@
 
 Built in Visual Studio 2019 + Based on openssl
 
-This program performs digital signature of the file.
+This program performs the signing and verification of the file.
 
 ## Design
 ### Signing
