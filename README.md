@@ -6,7 +6,10 @@ Built in Visual Studio 2019 + Based on openssl
 This program generates and validates digital signatures of files.
 
 ## Design
-
+### Signing
+![image](https://raw.githubusercontent.com/codetronik/File_DigitalSignature/master/screenshots/sign.png)
+### Verification
+![image](https://raw.githubusercontent.com/codetronik/File_DigitalSignature/master/screenshots/verification.png)
 
 ## Features
 - Generate a Digital signature of the file 
