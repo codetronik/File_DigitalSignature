@@ -32,9 +32,9 @@ void CDigitalSignatureDlg::DoDataExchange(CDataExchange* pDX)
 BEGIN_MESSAGE_MAP(CDigitalSignatureDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
-	ON_BN_CLICKED(IDC_BUTTON_MAKE, &CDigitalSignatureDlg::OnBnClickedButtonMake)
-	ON_BN_CLICKED(IDC_BUTTON_CREATE, &CDigitalSignatureDlg::OnBnClickedButtonCreate)
-	ON_BN_CLICKED(IDC_BUTTON_VALIDATE, &CDigitalSignatureDlg::OnBnClickedButtonValidate)
+	ON_BN_CLICKED(IDC_BUTTON_GENERATE, &CDigitalSignatureDlg::OnBnClickedButtonGenerate)
+	ON_BN_CLICKED(IDC_BUTTON_SIGN, &CDigitalSignatureDlg::OnBnClickedButtonSign)
+	ON_BN_CLICKED(IDC_BUTTON_VERIFY, &CDigitalSignatureDlg::OnBnClickedButtonVerify)
 END_MESSAGE_MAP()
 
 
@@ -117,7 +117,7 @@ BOOL CDigitalSignatureDlg::LoadRsaKey()
 	return TRUE;
 }
 
-void CDigitalSignatureDlg::OnBnClickedButtonMake()
+void CDigitalSignatureDlg::OnBnClickedButtonGenerate()
 {
 	int success;
 	
@@ -165,7 +165,7 @@ EXIT:
 }
 
 
-void CDigitalSignatureDlg::OnBnClickedButtonCreate()
+void CDigitalSignatureDlg::OnBnClickedButtonSign()
 {
 	WCHAR szFilter[] = L"All Files(*.*)|*.*||";
 	CFileDialog dlg(TRUE, NULL, NULL, OFN_HIDEREADONLY, szFilter);
@@ -269,7 +269,7 @@ EXIT:
 }
 
 
-void CDigitalSignatureDlg::OnBnClickedButtonValidate()
+void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 {
 	WCHAR szFilter[] = L"Sig Files(*.sig) | *.sig||";
 	CFileDialog dlg(TRUE, NULL, NULL, OFN_HIDEREADONLY, szFilter);
@@ -395,3 +395,4 @@ EXIT:
 		byFileBuffer = NULL;
 	}
 }
+

@@ -4,9 +4,9 @@
 //
 #define IDD_DIGITALSIGNATURE_DIALOG     102
 #define IDR_MAINFRAME                   128
-#define IDC_BUTTON_MAKE                 1000
-#define IDC_BUTTON_CREATE               1001
-#define IDC_BUTTON_VALIDATE             1002
+#define IDC_BUTTON_GENERATE             1000
+#define IDC_BUTTON_SIGN                 1001
+#define IDC_BUTTON_VERIFY               1002
 
 // Next default values for new objects
 // 
