@@ -12,7 +12,7 @@ This program performs digital signature of the file.
 ![image](https://raw.githubusercontent.com/codetronik/File_DigitalSignature/master/screenshots/verification.png)
 
 ## Features
-- The program sign the file and generate a digital signature
+- The program creates a Digital signature by signing the file.
 - The program verify a Digital signature of the file 
 
 ## How To Use
