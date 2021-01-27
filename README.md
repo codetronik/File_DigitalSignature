@@ -16,8 +16,12 @@ This program generates and validates digital signatures of files.
 - Verify a Digital signature of the file 
 
 ## How To Use
-1. Press "Make Key Pair" button to generate rsa keypairs.
+1. Press "Generate Key Pair" button to generate rsa keypairs.
 
 The key files are created in the running directory. (PrivateKey.pem and PublicKey.pem)
 
-2.  
+2. Press "Sign" button to sign the file.
+
+The Signature file is created in the running directory. (file name.sig)
+
+3. Press "Verify" button to verify the file.
