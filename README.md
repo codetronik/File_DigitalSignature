@@ -12,8 +12,8 @@ This program performs digital signature of the file.
 ![image](https://raw.githubusercontent.com/codetronik/File_DigitalSignature/master/screenshots/verification.png)
 
 ## Features
-- Generate a Digital signature of the file 
-- Verify a Digital signature of the file 
+- The program sign the file and generate a digital signature
+- The program verify a Digital signature of the file 
 
 ## How To Use
 1. Press "Generate Key Pair" button to generate rsa keypairs.
