@@ -13,9 +13,8 @@
 #define new DEBUG_NEW
 #endif
 
-
-// CDigitalSignatureDlg 대화 상자
-
+#define KEY_SIZE 2048
+//#define NOUSE_EVP 
 
 
 CDigitalSignatureDlg::CDigitalSignatureDlg(CWnd* pParent /*=nullptr*/)
@@ -38,43 +37,29 @@ BEGIN_MESSAGE_MAP(CDigitalSignatureDlg, CDialogEx)
 END_MESSAGE_MAP()
 
 
-// CDigitalSignatureDlg 메시지 처리기
-
 BOOL CDigitalSignatureDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
-	// 이 대화 상자의 아이콘을 설정합니다.  응용 프로그램의 주 창이 대화 상자가 아닐 경우에는
-	//  프레임워크가 이 작업을 자동으로 수행합니다.
-	SetIcon(m_hIcon, TRUE);			// 큰 아이콘을 설정합니다.
-	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
-
-	// TODO: 여기에 추가 초기화 작업을 추가합니다.
-
-	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
+	SetIcon(m_hIcon, TRUE);	
+	SetIcon(m_hIcon, FALSE);
+	return TRUE;
 }
-
-// 대화 상자에 최소화 단추를 추가할 경우 아이콘을 그리려면
-//  아래 코드가 필요합니다.  문서/뷰 모델을 사용하는 MFC 애플리케이션의 경우에는
-//  프레임워크에서 이 작업을 자동으로 수행합니다.
 
 void CDigitalSignatureDlg::OnPaint()
 {
 	if (IsIconic())
 	{
-		CPaintDC dc(this); // 그리기를 위한 디바이스 컨텍스트입니다.
-
+		CPaintDC dc(this);
 		SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()), 0);
-
-		// 클라이언트 사각형에서 아이콘을 가운데에 맞춥니다.
+			
 		int cxIcon = GetSystemMetrics(SM_CXICON);
 		int cyIcon = GetSystemMetrics(SM_CYICON);
 		CRect rect;
 		GetClientRect(&rect);
 		int x = (rect.Width() - cxIcon + 1) / 2;
 		int y = (rect.Height() - cyIcon + 1) / 2;
-
-		// 아이콘을 그립니다.
+			
 		dc.DrawIcon(x, y, m_hIcon);
 	}
 	else
@@ -83,8 +68,6 @@ void CDigitalSignatureDlg::OnPaint()
 	}
 }
 
-// 사용자가 최소화된 창을 끄는 동안에 커서가 표시되도록 시스템에서
-//  이 함수를 호출합니다.
 HCURSOR CDigitalSignatureDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
@@ -137,8 +120,8 @@ void CDigitalSignatureDlg::OnBnClickedButtonGenerate()
 	}
 
 	// 키 pair 생성
-	//RAND_status();
-	RSA* rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
+	RAND_status();
+	RSA* rsa = RSA_generate_key(KEY_SIZE, RSA_F4, NULL, NULL);
 
 	//  파일에 pem 형태로 공개키 기록
 	success = PEM_write_bio_RSA_PUBKEY(bio_public, rsa);
@@ -173,6 +156,7 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 	CString strSigPathName;
 	BYTE* byFileBuffer = NULL;
 	DWORD dwRead = 0;
+	BYTE bySign[KEY_SIZE / 8] = { 0, };
 	HANDLE hFile = NULL;
 	BOOL bSuccess = LoadRsaKey();
 	if (FALSE == bSuccess)
@@ -211,25 +195,55 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 
 	CloseHandle(hFile);
 	hFile = NULL;
+	
+	/*
+		서명에는 evp 함수를 사용하는 방법과 평문 hash->rsa_encrypt하는 2가지 방법이 있다.
+		다만, 두 가지의 sign값이 다름.
+	*/
+
+#if defined(NOUSE_EVP)
 	/*************************
 		2. HASH
-	**************************/
+	**************************/	
 	BYTE byHash[SHA256_DIGEST_LENGTH] = { 0, };
 	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, byFileBuffer, dwRead);
 	SHA256_Final(byHash, &sha256);
 	
+	/*************************
+		3. 개인키로 hash 암호화
+	**************************/		
+	int enc_size = RSA_private_encrypt(SHA256_DIGEST_LENGTH, byHash, bySign, m_rsa_private, RSA_PKCS1_PADDING);
+#else
+	/*************************
+		2&3. EVP (hash & encrypt)
+	**************************/
+
+	EVP_MD_CTX ctx;
+	EVP_PKEY* pkey;
+	int result;	
+	unsigned int signSize = 0;
+	pkey = EVP_PKEY_new();
+	result = EVP_PKEY_set1_RSA(pkey, m_rsa_private);
+
+	EVP_MD_CTX_init(&ctx);
+	result = EVP_SignInit(&ctx, EVP_sha256(), NULL);
+	result = EVP_SignUpdate(&ctx, byFileBuffer, dwRead);
+	result = EVP_SignFinal(&ctx, bySign, &signSize, pkey);
+	EVP_MD_CTX_cleanup(&ctx);
+	EVP_PKEY_free(pkey);
+
+	if ((signSize != KEY_SIZE / 8) || result != 1)
+	{
+		AfxMessageBox(L"Sign Error");
+		goto EXIT_ERROR;
+	}
+#endif
 	// 와이핑
 	memset(byFileBuffer, 0, dwRead);
 	free(byFileBuffer);
 	byFileBuffer = NULL;
-
-	/*************************
-		3. 개인키로 hash 암호화
-	**************************/
-	BYTE byRsaEnc[2048 / 8] = { 0, };
-	int enc_size = RSA_private_encrypt(SHA256_DIGEST_LENGTH, byHash, byRsaEnc, m_rsa_private, RSA_PKCS1_PADDING);
 
 	/*************************
 		4. 서명을 파일에 저장
@@ -244,13 +258,13 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 	}
 	DWORD dwWritten = 0;
 
-	bSuccess = WriteFile(hFile, byRsaEnc, 2048 / 8, &dwWritten, NULL);
+	bSuccess = WriteFile(hFile, bySign, KEY_SIZE / 8, &dwWritten, NULL);
 	if (FALSE == bSuccess)
 	{
 		AfxMessageBox(L"WriteFile() Error");
 		goto EXIT_ERROR;
 	}
-	
+
 	CloseHandle(hFile);
 	hFile = NULL;
 	AfxMessageBox(L" Digital signature generation is complete.");
@@ -276,7 +290,11 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 	CString strPathName;
 	CString strSigPathName;
 	BYTE* byFileBuffer = NULL;
+	BYTE* bySignFileBuffer = NULL;
+
 	DWORD dwRead = 0;
+	DWORD dwRead2 = 0;
+
 	HANDLE hFile = NULL;
 	BOOL bSuccess = LoadRsaKey();
 	if (FALSE == bSuccess)
@@ -320,21 +338,7 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 	hFile = NULL;
 
 	/*************************
-		2. HASH
-	**************************/
-	BYTE byHash[SHA256_DIGEST_LENGTH] = { 0, };
-	SHA256_CTX sha256;
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, byFileBuffer, dwRead);
-	SHA256_Final(byHash, &sha256);
-
-	// 와이핑
-	memset(byFileBuffer, 0, dwRead);
-	free(byFileBuffer);
-	byFileBuffer = NULL;
-
-	/*************************
-		3. 서명 파일 로딩
+		2. 서명 파일 로딩
 	**************************/	
 	hFile = CreateFile(strSigPathName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (INVALID_HANDLE_VALUE == hFile)
@@ -344,14 +348,13 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 		goto EXIT_ERROR;
 	}
 	nFileSize = GetFileSize(hFile, NULL);
-	if (nFileSize != 2048 / 8)
+	if (nFileSize != KEY_SIZE / 8)
 	{
 		AfxMessageBox(L"This is not a signature file.");
 		goto EXIT_ERROR;
 	}
-	byFileBuffer = (BYTE*)malloc(nFileSize + 1);
-
-	bSuccess = ReadFile(hFile, byFileBuffer, nFileSize, &dwRead, NULL);
+	bySignFileBuffer = (BYTE*)malloc(nFileSize + 1);
+	bSuccess = ReadFile(hFile, bySignFileBuffer, nFileSize, &dwRead2, NULL);
 	if (FALSE == bSuccess)
 	{
 		AfxMessageBox(L"ReadFile() Error");
@@ -360,30 +363,62 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 
 	CloseHandle(hFile);
 	hFile = NULL;
-
-
+		
+#if defined(NOUSE_EVP)
 	/*************************
-		4. 공개키로 hash 복호화
+		3. 공개키로 hash 복호화
 	**************************/		
 	BYTE byRsaDec[SHA256_DIGEST_LENGTH] = { 0, };
-	int dec_size = RSA_public_decrypt(2048/8, byFileBuffer, byRsaDec, m_rsa_public, RSA_PKCS1_PADDING);
-	// 와이핑
-	memset(byFileBuffer, 0, dwRead);
-	free(byFileBuffer);
-	byFileBuffer = NULL;
+	int dec_size = RSA_public_decrypt(KEY_SIZE/8, bySignFileBuffer, byRsaDec, m_rsa_public, RSA_PKCS1_PADDING);
+	if (dec_size != SHA256_DIGEST_LENGTH)
+	{
+		AfxMessageBox(L"Decrypt Error");
+		goto EXIT_ERROR;
+	}
+	/*************************
+		4. 원본 HASH
+	**************************/
+	BYTE byHash[SHA256_DIGEST_LENGTH] = { 0, };
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, byFileBuffer, dwRead);
+	SHA256_Final(byHash, &sha256);
 
 	/*************************
 		5. hash 비교
 	**************************/
 	if (memcmp(byRsaDec, byHash, 32) == 0)
-	{		
+	{
 		AfxMessageBox(L"This file has not been modified.");
 	}
 	else
 	{
 		AfxMessageBox(L"This file has been modified.");
 	}
-
+#else
+	/*************************
+		3&4&5. EVP(rsa_decrypt & hash & compare)
+	**************************/
+	EVP_MD_CTX ctx;
+	EVP_PKEY* pubkey;
+	int result;
+	pubkey = EVP_PKEY_new();
+	result = EVP_PKEY_set1_RSA(pubkey, m_rsa_public);
+	EVP_MD_CTX_init(&ctx);
+	result = EVP_VerifyInit_ex(&ctx, EVP_sha256(), NULL);
+	result = EVP_VerifyUpdate(&ctx, byFileBuffer, dwRead);
+	result = EVP_VerifyFinal(&ctx, bySignFileBuffer, KEY_SIZE/8 , pubkey);
+	EVP_MD_CTX_cleanup(&ctx);
+	EVP_PKEY_free(pubkey);
+	if (result == 1)
+	{
+		AfxMessageBox(L"This file has not been modified.");	
+	}
+	else
+	{
+		AfxMessageBox(L"This file has been modified.");
+	}
+#endif
 	goto EXIT;
 EXIT_ERROR:
 EXIT:
@@ -393,6 +428,12 @@ EXIT:
 		memset(byFileBuffer, 0, dwRead);
 		free(byFileBuffer);
 		byFileBuffer = NULL;
+	}
+	if (bySignFileBuffer != NULL)
+	{
+		memset(bySignFileBuffer, 0, dwRead2);
+		free(bySignFileBuffer);
+		bySignFileBuffer = NULL;
 	}
 }
 
