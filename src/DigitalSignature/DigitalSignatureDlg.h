@@ -5,6 +5,7 @@
 #pragma once
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
+#include <openssl/rand.h>
 
 // CDigitalSignatureDlg 대화 상자
 class CDigitalSignatureDlg : public CDialogEx
