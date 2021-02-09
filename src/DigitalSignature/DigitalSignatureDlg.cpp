@@ -7,7 +7,7 @@
 #include "DigitalSignature.h"
 #include "DigitalSignatureDlg.h"
 #include "afxdialogex.h"
-
+#include <vector>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -154,7 +154,8 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 	CFileDialog dlg(TRUE, NULL, NULL, OFN_HIDEREADONLY, szFilter);
 	CString strPathName;
 	CString strSigPathName;
-	BYTE* byFileBuffer = NULL;
+	
+	std::vector<BYTE> FileBuffer;
 	DWORD dwRead = 0;
 	BYTE bySign[KEY_SIZE / 8] = { 0, };
 	HANDLE hFile = NULL;
@@ -184,9 +185,9 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 		goto EXIT_ERROR;
 	}
 	DWORD nFileSize = GetFileSize(hFile, NULL);
-	byFileBuffer = (BYTE*)malloc(nFileSize+1);
+	FileBuffer.resize(nFileSize); // vector 사이즈 재할당
 	
-	bSuccess = ReadFile(hFile, byFileBuffer, nFileSize, &dwRead, NULL);
+	bSuccess = ReadFile(hFile, &FileBuffer.front(), nFileSize, &dwRead, NULL);
 	if (FALSE == bSuccess)
 	{
 		AfxMessageBox(L"ReadFile() Error");
@@ -208,7 +209,7 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 	BYTE byHash[SHA256_DIGEST_LENGTH] = { 0, };
 	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, byFileBuffer, dwRead);
+	SHA256_Update(&sha256, &FileBuffer.front(), dwRead);
 	SHA256_Final(byHash, &sha256);
 	
 	/*************************
@@ -228,8 +229,8 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 	result = EVP_PKEY_set1_RSA(pkey, m_rsa_private);
 
 	EVP_MD_CTX_init(&ctx);
-	result = EVP_SignInit(&ctx, EVP_sha256(), NULL);
-	result = EVP_SignUpdate(&ctx, byFileBuffer, dwRead);
+	result = EVP_SignInit(&ctx, EVP_sha256());
+	result = EVP_SignUpdate(&ctx, &FileBuffer.front(), dwRead);
 	result = EVP_SignFinal(&ctx, bySign, &signSize, pkey);
 	EVP_MD_CTX_cleanup(&ctx);
 	EVP_PKEY_free(pkey);
@@ -240,10 +241,7 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 		goto EXIT_ERROR;
 	}
 #endif
-	// 와이핑
-	memset(byFileBuffer, 0, dwRead);
-	free(byFileBuffer);
-	byFileBuffer = NULL;
+
 
 	/*************************
 		4. 서명을 파일에 저장
@@ -273,12 +271,7 @@ void CDigitalSignatureDlg::OnBnClickedButtonSign()
 EXIT_ERROR:
 EXIT:
 	if (hFile != NULL) CloseHandle(hFile);
-	if (byFileBuffer != NULL)
-	{
-		memset(byFileBuffer, 0, dwRead);
-		free(byFileBuffer);
-		byFileBuffer = NULL;
-	}
+
 	return;
 }
 
@@ -289,8 +282,8 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 	CFileDialog dlg(TRUE, NULL, NULL, OFN_HIDEREADONLY, szFilter);
 	CString strPathName;
 	CString strSigPathName;
-	BYTE* byFileBuffer = NULL;
-	BYTE* bySignFileBuffer = NULL;
+	std::vector<BYTE> FileBuffer;
+	std::vector<BYTE> SignFileBuffer;
 
 	DWORD dwRead = 0;
 	DWORD dwRead2 = 0;
@@ -325,9 +318,9 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 		goto EXIT_ERROR;
 	}
 	DWORD nFileSize = GetFileSize(hFile, NULL);
-	byFileBuffer = (BYTE*)malloc(nFileSize + 1);
+	FileBuffer.resize(nFileSize); // vector 사이즈 재할당
 
-	bSuccess = ReadFile(hFile, byFileBuffer, nFileSize, &dwRead, NULL);
+	bSuccess = ReadFile(hFile, &FileBuffer.front(), nFileSize, &dwRead, NULL);
 	if (FALSE == bSuccess)
 	{
 		AfxMessageBox(L"ReadFile() Error");
@@ -353,8 +346,9 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 		AfxMessageBox(L"This is not a signature file.");
 		goto EXIT_ERROR;
 	}
-	bySignFileBuffer = (BYTE*)malloc(nFileSize + 1);
-	bSuccess = ReadFile(hFile, bySignFileBuffer, nFileSize, &dwRead2, NULL);
+	SignFileBuffer.resize(nFileSize);
+
+	bSuccess = ReadFile(hFile, &SignFileBuffer.front(), nFileSize, &dwRead2, NULL);
 	if (FALSE == bSuccess)
 	{
 		AfxMessageBox(L"ReadFile() Error");
@@ -369,7 +363,7 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 		3. 공개키로 hash 복호화
 	**************************/		
 	BYTE byRsaDec[SHA256_DIGEST_LENGTH] = { 0, };
-	int dec_size = RSA_public_decrypt(KEY_SIZE/8, bySignFileBuffer, byRsaDec, m_rsa_public, RSA_PKCS1_PADDING);
+	int dec_size = RSA_public_decrypt(KEY_SIZE/8, &SignFileBuffer.front(), byRsaDec, m_rsa_public, RSA_PKCS1_PADDING);
 	if (dec_size != SHA256_DIGEST_LENGTH)
 	{
 		AfxMessageBox(L"Decrypt Error");
@@ -381,7 +375,7 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 	BYTE byHash[SHA256_DIGEST_LENGTH] = { 0, };
 	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, byFileBuffer, dwRead);
+	SHA256_Update(&sha256, &FileBuffer.front(), dwRead);
 	SHA256_Final(byHash, &sha256);
 
 	/*************************
@@ -406,8 +400,8 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 	result = EVP_PKEY_set1_RSA(pubkey, m_rsa_public);
 	EVP_MD_CTX_init(&ctx);
 	result = EVP_VerifyInit_ex(&ctx, EVP_sha256(), NULL);
-	result = EVP_VerifyUpdate(&ctx, byFileBuffer, dwRead);
-	result = EVP_VerifyFinal(&ctx, bySignFileBuffer, KEY_SIZE/8 , pubkey);
+	result = EVP_VerifyUpdate(&ctx, &FileBuffer.front(), dwRead);
+	result = EVP_VerifyFinal(&ctx, &SignFileBuffer.front(), KEY_SIZE/8 , pubkey);
 	EVP_MD_CTX_cleanup(&ctx);
 	EVP_PKEY_free(pubkey);
 	if (result == 1)
@@ -423,17 +417,6 @@ void CDigitalSignatureDlg::OnBnClickedButtonVerify()
 EXIT_ERROR:
 EXIT:
 	if (hFile != NULL) CloseHandle(hFile);
-	if (byFileBuffer != NULL)
-	{
-		memset(byFileBuffer, 0, dwRead);
-		free(byFileBuffer);
-		byFileBuffer = NULL;
-	}
-	if (bySignFileBuffer != NULL)
-	{
-		memset(bySignFileBuffer, 0, dwRead2);
-		free(bySignFileBuffer);
-		bySignFileBuffer = NULL;
-	}
+
 }
 
